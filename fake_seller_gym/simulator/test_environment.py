@@ -2,7 +2,7 @@ import datetime
 from environment import Order, FakeSellerGymEnv
 import numpy as np 
 import pytest
-
+import pandas as pd
 
 ts = datetime.datetime.fromisoformat
 date = datetime.date.fromisoformat
@@ -138,3 +138,41 @@ def fake_seller_gym():
     fake_seller_gym.discovery_timestamp = None
     fake_seller_gym.signup_timestamp = ts("2023-01-01 10:00:00")
     return fake_seller_gym
+
+
+
+def test_fake_seller_gym_env__reset():
+    signup_timestamp = ts("2023-01-01 13:12:00")
+    classifier_score =  0.1
+    discovery_timestamp = ts("2023-01-08 16:00:00")
+    sellers_df  = pd.DataFrame(
+        columns=["seller_id", "signup_timestamp", "classifier_score"],
+        data=[
+            (101, signup_timestamp, classifier_score)
+        ]
+    )
+    discorvery_df  = pd.DataFrame(
+        columns=["seller_id", "discovery_timestamp"],
+        data=[
+            (101, discovery_timestamp)
+        ]
+    )
+    order = Order(ts("2023-01-03 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
+    orders_df  = pd.DataFrame(
+        columns=["seller_id", "creation_timestamp", "delivery_date", "delivery_confirmation_timestamp"],
+        data=[
+            (101, order.creation_timestamp, order.delivery_date, order.delivery_confirmation_timestamp)
+        ]
+    )
+    gym_env = FakeSellerGymEnv(sellers_df, discorvery_df, orders_df)
+
+    obs, info = gym_env.reset()
+    expected_obs = np.zeros(32)
+    expected_obs[31] = classifier_score
+
+    np.testing.assert_allclose(obs, expected_obs)
+    assert info == {}
+    assert gym_env.signup_timestamp == signup_timestamp
+    assert gym_env.classifier_score == classifier_score
+    assert gym_env.orders == [order]
+    assert gym_env.discovery_timestamp == discovery_timestamp

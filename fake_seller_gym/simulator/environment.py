@@ -1,6 +1,6 @@
 import dataclasses
 import datetime
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 import gym
@@ -71,20 +71,19 @@ class FakeSellerGymEnv(gym.Env):
 
     def reset(self):
         # sampling from dataset
-        seller_id = ...
+        seller = self.sellers_df.sample(n=1).iloc[0]
 
         # init properties 
-        self.signup_timestamp = ...
-        self.classifier_score = ...
-        self.orders = ...
-        self.discovery_timestamp = ...
+        self.signup_timestamp = seller.signup_timestamp
+        self.classifier_score = seller.classifier_score
+        self.orders = self._get_orders_for_seller_id(seller.seller_id)
+        self.discovery_timestamp = self._get_discovery_timestamp_for_seller_id(seller.seller_id)
 
         # build observation
-        creation = np.zeros(8) # -inf, -28, -14, -7, -5, -3, -1, 0 days
-        delivery = np.zeros(15) # -inf, -28, -14, -7, -5, -3, -1, 0, 1, 3, 5, 7, 14, 28, inf days
-        delivery_confirmation = np.zeros(8) # -inf, -28, -14, -7, -5, -3, -1, 0 days
+
         timestep = 0
-        obs = np.array([creation, delivery, delivery_confirmation, timestep, self.classifier_score])
+        creation, delivery, delivery_confirmation = self._get_state_of_orders_at_timestep(timestep)
+        obs = np.concatenate((creation, delivery, delivery_confirmation, np.array([timestep, self.classifier_score])), axis=None)
 
         info = {}
         return obs, info
@@ -104,3 +103,13 @@ class FakeSellerGymEnv(gym.Env):
             delivery_confirmation, _ = np.histogram(delivery_confirmation_timesteps-timestep, bins=PAST_BINS)
         return creation, delivery, delivery_confirmation
 
+    def _get_orders_for_seller_id(self, seller_id: int) -> List[Order]:
+        return [
+            Order(order.creation_timestamp, order.delivery_date, order.delivery_confirmation_timestamp) 
+            for _, order in self.orders_df[self.orders_df.seller_id == seller_id].iterrows()
+        ]
+
+    def _get_discovery_timestamp_for_seller_id(self, seller_id: int) -> Optional[datetime.datetime]:
+        discovery = self.discovery_df[self.discovery_df.seller_id==seller_id]
+        if not discovery.empty:
+            return discovery.iloc[0].discovery_timestamp
