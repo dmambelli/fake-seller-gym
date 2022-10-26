@@ -1,5 +1,7 @@
+import enum
 import dataclasses
 import datetime
+from this import d
 from typing import List, Optional
 
 import pandas as pd
@@ -21,13 +23,21 @@ class Order:
     delivery_confirmation_timestamp: datetime.datetime
 
 
+class Action(enum.Enum):
+    ALLOW = 0
+    INVESTIGATE = 1
+    
+
 class FakeSellerGymEnv(gym.Env):
 
-    def __init__(self, sellers_df: pd.DataFrame, discorvery_df: pd.DataFrame, orders_df: pd.DataFrame):
+    def __init__(self, sellers_df: pd.DataFrame, discorvery_df: pd.DataFrame, orders_df: pd.DataFrame, final_timestep_if_genuine: int = 90):
         self.signup_timestamp = None
         self.classifier_score = None
         self.orders: List[Order] = None
         self.discovery_timestamp = None
+        self.timestep = None
+        self.discovery_timestep = None
+        self.final_timestep_if_genuine = final_timestep_if_genuine
         # load the dataset
         self.sellers_df = sellers_df  # seller_id, signup_timestamp, classifier_score
         self.discovery_df = discorvery_df  # seller_id, discovery_timestamp
@@ -41,25 +51,19 @@ class FakeSellerGymEnv(gym.Env):
     def game_over(self):
       return False
 
-    @property
-    def action_space(self):
-        return action_space
-
-    @property
-    def observation_space(self):
- 
-        return obs_space
-
-    def step(self, action):
+    def step(self, action: Action):
+        self.timestep += 1
+        
         # check for terminal state
-
+        if (self.timestep == self.final_timestep) or (action==Action.INVESTIGATE):
+            done = True
+            
         # fetch new events
 
         # update state with new events
         orders_vector = ...
         delivery_vector = ...
-        timestep += 1
-        obs = np.array([orders_vector, delivery_vector, timestep, self.classifier_score])
+        obs = np.array([orders_vector, delivery_vector, self.timestep, self.classifier_score])
 
         # compute rewards
         reward = ...
@@ -78,15 +82,21 @@ class FakeSellerGymEnv(gym.Env):
         self.classifier_score = seller.classifier_score
         self.orders = self._get_orders_for_seller_id(seller.seller_id)
         self.discovery_timestamp = self._get_discovery_timestamp_for_seller_id(seller.seller_id)
+        # self.discovery_timestep = (self.discovery_timestamp - self.signup_timestamp).days + 1
+        self.final_timestep = (self.discovery_timestamp - self.signup_timestamp).days + 1 if self.discovery_timestamp is not None else self.final_timestep_if_genuine
+        
 
         # build observation
-
-        timestep = 0
-        creation, delivery, delivery_confirmation = self._get_state_of_orders_at_timestep(timestep)
-        obs = np.concatenate((creation, delivery, delivery_confirmation, np.array([timestep, self.classifier_score])), axis=None)
+        self.timestep = 0
+        creation, delivery, delivery_confirmation = self._get_state_of_orders_at_timestep(self.timestep)
+        obs = np.concatenate((creation, delivery, delivery_confirmation, np.array([self.timestep, self.classifier_score])), axis=None)
 
         info = {}
         return obs, info
+    
+    def _get_reward_from_state_action(self, action, creation, delivery_confirmation):
+        pass
+        
 
     def _get_state_of_orders_at_timestep(self, timestep):
         if timestep == 0:

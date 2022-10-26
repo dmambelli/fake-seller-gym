@@ -1,5 +1,5 @@
 import datetime
-from environment import Order, FakeSellerGymEnv
+from environment import Order, FakeSellerGymEnv, Action
 import numpy as np 
 import pytest
 import pandas as pd
@@ -132,12 +132,6 @@ def test_environment___get_state_of_orders_at_timestep_when_order_at_same_day_as
     np.testing.assert_allclose(delivery_confirmation, expected_delivery_confirmation)
 
 
-@pytest.fixture
-def fake_seller_gym():
-    fake_seller_gym = FakeSellerGymEnv(None, None, None)
-    fake_seller_gym.discovery_timestamp = None
-    fake_seller_gym.signup_timestamp = ts("2023-01-01 10:00:00")
-    return fake_seller_gym
 
 
 
@@ -176,3 +170,40 @@ def test_fake_seller_gym_env__reset():
     assert gym_env.classifier_score == classifier_score
     assert gym_env.orders == [order]
     assert gym_env.discovery_timestamp == discovery_timestamp
+    
+def test_fake_seller_gym_step_done_when_investigate(fake_seller_gym):
+    _, _, done, _ = fake_seller_gym.step(action=Action.INVESTIGATE)
+    assert done
+    
+
+@pytest.fixture
+def fake_seller_gym():
+    fake_seller_gym = FakeSellerGymEnv(None, None, None)
+    fake_seller_gym.discovery_timestamp = None
+    fake_seller_gym.signup_timestamp = ts("2023-01-01 10:00:00")
+    return fake_seller_gym
+
+
+@pytest.fixture
+def gym_for_fake_seller():
+    sellers_df  = pd.DataFrame(
+        columns=["seller_id", "signup_timestamp", "classifier_score"],
+        data=[
+            (101, ts("2023-01-01 13:12:00"), 0.9)
+        ]
+    )
+    discorvery_df  = pd.DataFrame(
+        columns=["seller_id", "discovery_timestamp"],
+        data=[
+            (101, ts("2023-01-08 16:00:00"))
+        ]
+    )
+    orders_df  = pd.DataFrame(
+        columns=["seller_id", "creation_timestamp", "delivery_date", "delivery_confirmation_timestamp"],
+        data=[
+            (101, ts("2023-01-03 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
+        ]
+    )
+    gym_env = FakeSellerGymEnv(sellers_df, discorvery_df, orders_df)
+    gym_env.reset()
+    return gym_env
