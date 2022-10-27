@@ -1,5 +1,5 @@
 import datetime
-from environment import Order, FakeSellerGymEnv, Action
+from environment import Order, FakeSellerGymEnv, Action, _get_state_of_orders_at_timestep
 import numpy as np 
 import pytest
 import pandas as pd
@@ -7,30 +7,27 @@ import pandas as pd
 ts = datetime.datetime.fromisoformat
 date = datetime.date.fromisoformat
 
-def test_environment___get_state_of_orders_at_timestep_with_expected_inputs(fake_seller_gym):
+def test__get_state_of_orders_at_timestep_with_expected_inputs(signup_timestamp):
     orders = [
         Order(ts("2023-01-03 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
     ]
+    creation, delivery, delivery_confirmation = _get_state_of_orders_at_timestep(signup_timestamp, orders, timestep=5)
 
-    fake_seller_gym.orders = orders
-
-
-    creation, delivery, delivery_confirmation = fake_seller_gym._get_state_of_orders_at_timestep(timestep=5)
     expected_creation = np.zeros(8)
     expected_creation[5] = 1
     expected_delivery = np.zeros(14)
     expected_delivery[8] = 1
     expected_delivery_confirmation = np.zeros(8)
+
     np.testing.assert_allclose(creation, expected_creation)
     np.testing.assert_allclose(delivery, expected_delivery)
     np.testing.assert_allclose(delivery_confirmation, expected_delivery_confirmation)
 
 
-def test_environment___get_state_of_orders_at_timestep_with_empty_orders(fake_seller_gym):
+def test__get_state_of_orders_at_timestep_with_empty_orders(signup_timestamp):
     orders = []
+    creation, delivery, delivery_confirmation = _get_state_of_orders_at_timestep(signup_timestamp, orders, timestep=5)
 
-    fake_seller_gym.orders = orders
-    creation, delivery, delivery_confirmation = fake_seller_gym._get_state_of_orders_at_timestep(timestep=5)
     expected_creation = np.zeros(8)
     expected_delivery = np.zeros(14)
     expected_delivery_confirmation = np.zeros(8)
@@ -40,54 +37,47 @@ def test_environment___get_state_of_orders_at_timestep_with_empty_orders(fake_se
 
 
 
-def test_environment___get_state_of_orders_at_timestep_with_expected_inputs_timestep_after_confirmation(fake_seller_gym):
+def test__get_state_of_orders_at_timestep_with_expected_inputs_timestep_after_confirmation(signup_timestamp):
     orders = [
         Order(ts("2023-01-03 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
     ]
+    creation, delivery, delivery_confirmation = _get_state_of_orders_at_timestep(signup_timestamp, orders, timestep=8)
 
-    fake_seller_gym.orders = orders
-
-
-    creation, delivery, delivery_confirmation = fake_seller_gym._get_state_of_orders_at_timestep(timestep=8)
     expected_creation = np.zeros(8)
     expected_creation[3] = 1
     expected_delivery = np.zeros(14)
     expected_delivery[5] = 1
     expected_delivery_confirmation = np.zeros(8)
     expected_delivery_confirmation[6] = 1
+
     np.testing.assert_allclose(creation, expected_creation)
     np.testing.assert_allclose(delivery, expected_delivery)
     np.testing.assert_allclose(delivery_confirmation, expected_delivery_confirmation)
 
 
-def test_environment___get_state_of_orders_at_timestep_with_expected_inputs_times_2(fake_seller_gym):
+def test__get_state_of_orders_at_timestep_with_expected_inputs_times_2(signup_timestamp):
     orders = [
         Order(ts("2023-01-03 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
     ]*2
+    creation, delivery, delivery_confirmation = _get_state_of_orders_at_timestep(signup_timestamp, orders, timestep=5)
 
-    fake_seller_gym.orders = orders
-
-
-    creation, delivery, delivery_confirmation = fake_seller_gym._get_state_of_orders_at_timestep(timestep=5)
     expected_creation = np.zeros(8)
     expected_creation[5] = 2
     expected_delivery = np.zeros(14)
     expected_delivery[8] = 2
     expected_delivery_confirmation = np.zeros(8)
+
     np.testing.assert_allclose(creation, expected_creation)
     np.testing.assert_allclose(delivery, expected_delivery)
     np.testing.assert_allclose(delivery_confirmation, expected_delivery_confirmation)
 
 
-def test_environment___get_state_of_orders_at_timestep_returns_all_zeros_when_no_orders_at_current_timestep(fake_seller_gym):
+def test__get_state_of_orders_at_timestep_returns_all_zeros_when_no_orders_at_current_timestep(signup_timestamp):
     orders = [
         Order(ts("2023-01-03 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
     ]
+    creation, delivery, delivery_confirmation = _get_state_of_orders_at_timestep(signup_timestamp, orders, timestep=0)
 
-    fake_seller_gym.orders = orders
-
-
-    creation, delivery, delivery_confirmation = fake_seller_gym._get_state_of_orders_at_timestep(timestep=0)
     expected_creation = np.zeros(8)
     expected_delivery = np.zeros(14)
     expected_delivery_confirmation = np.zeros(8)
@@ -96,15 +86,12 @@ def test_environment___get_state_of_orders_at_timestep_returns_all_zeros_when_no
     np.testing.assert_allclose(delivery_confirmation, expected_delivery_confirmation)
 
 
-def test_environment___get_state_of_orders_at_timestep_when_order_at_same_day_as_signup_for_timestep_0(fake_seller_gym):
+def test__get_state_of_orders_at_timestep_when_order_at_same_day_as_signup_for_timestep_0(signup_timestamp):
     orders = [
         Order(ts("2023-01-01 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
     ]
+    creation, delivery, delivery_confirmation = _get_state_of_orders_at_timestep(signup_timestamp, orders, timestep=0)
 
-    fake_seller_gym.orders = orders
-
-
-    creation, delivery, delivery_confirmation = fake_seller_gym._get_state_of_orders_at_timestep(timestep=0)
     expected_creation = np.zeros(8)
     expected_delivery = np.zeros(14)
     expected_delivery_confirmation = np.zeros(8)
@@ -113,15 +100,12 @@ def test_environment___get_state_of_orders_at_timestep_when_order_at_same_day_as
     np.testing.assert_allclose(delivery_confirmation, expected_delivery_confirmation)
 
 
-def test_environment___get_state_of_orders_at_timestep_when_order_at_same_day_as_signup_for_timestep_1(fake_seller_gym):
+def test__get_state_of_orders_at_timestep_when_order_at_same_day_as_signup_for_timestep_1(signup_timestamp):
     orders = [
         Order(ts("2023-01-01 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
     ]
+    creation, delivery, delivery_confirmation = _get_state_of_orders_at_timestep(signup_timestamp, orders, timestep=1)
 
-    fake_seller_gym.orders = orders
-
-
-    creation, delivery, delivery_confirmation = fake_seller_gym._get_state_of_orders_at_timestep(timestep=1)
     expected_creation = np.zeros(8)
     expected_creation[6] = 1 
     expected_delivery = np.zeros(14)
@@ -130,9 +114,6 @@ def test_environment___get_state_of_orders_at_timestep_when_order_at_same_day_as
     np.testing.assert_allclose(creation, expected_creation)
     np.testing.assert_allclose(delivery, expected_delivery)
     np.testing.assert_allclose(delivery_confirmation, expected_delivery_confirmation)
-
-
-
 
 
 def test_fake_seller_gym_env__reset():
@@ -170,18 +151,17 @@ def test_fake_seller_gym_env__reset():
     assert gym_env.classifier_score == classifier_score
     assert gym_env.orders == [order]
     assert gym_env.discovery_timestamp == discovery_timestamp
-    
-def test_fake_seller_gym_step_done_when_investigate(fake_seller_gym):
-    _, _, done, _ = fake_seller_gym.step(action=Action.INVESTIGATE)
-    assert done
+    assert gym_env.final_timestep == 8
     
 
+def test_fake_seller_gym_step_done_when_investigate(gym_for_fake_seller):
+    _, _, done, _ = gym_for_fake_seller.step(action=Action.INVESTIGATE)
+    assert done
+
+
 @pytest.fixture
-def fake_seller_gym():
-    fake_seller_gym = FakeSellerGymEnv(None, None, None)
-    fake_seller_gym.discovery_timestamp = None
-    fake_seller_gym.signup_timestamp = ts("2023-01-01 10:00:00")
-    return fake_seller_gym
+def signup_timestamp():
+    return ts("2023-01-01 10:00:00")
 
 
 @pytest.fixture
@@ -204,6 +184,6 @@ def gym_for_fake_seller():
             (101, ts("2023-01-03 12:00:00"), date("2023-01-07"), ts("2023-01-08 11:00:00"))
         ]
     )
-    gym_env = FakeSellerGymEnv(sellers_df, discorvery_df, orders_df)
-    gym_env.reset()
-    return gym_env
+    gym_for_fake_seller = FakeSellerGymEnv(sellers_df, discorvery_df, orders_df)
+    gym_for_fake_seller.reset()
+    return gym_for_fake_seller
