@@ -9,11 +9,12 @@ import numpy as np
 
 
 INFINITE_TIMESTEP = 1000
-PAST_BINS = [-INFINITE_TIMESTEP, -28, -14, -7, -5, -3, -1, 0, 1]
+epsilon = 1e-8
+PAST_BINS = [-INFINITE_TIMESTEP, -28, -14, -7, -5, -3, -1, 0-epsilon]
 PAST_AND_FUTURE_BINS = [-INFINITE_TIMESTEP, -28, -14, -7, -5, -3, -1, 0, 1, 3, 5, 7, 14, 28, INFINITE_TIMESTEP]
-COST_INVESTIGATION = 10
-AVERAGE_COST_PER_ORDER = 1
-AVERAGE_BENEFIT_PER_ORDER = 1
+COST_INVESTIGATION = 2
+AVERAGE_BENEFIT_PER_ORDER = 3
+AVERAGE_COST_PER_ORDER = 4
 
 
 @dataclasses.dataclass
@@ -57,9 +58,8 @@ class FakeSellerGymEnv(gym.Env):
         self.timestep += 1
         
         # check for terminal state
-        if (self.timestep == self.final_timestep) or (action==Action.INVESTIGATE):
-            done = True
-        
+        done = (self.timestep == self.final_timestep) or (action==Action.INVESTIGATE)
+                
         # if we investigate at timestep t and the seller is fraudulent, then all orders after timestep t are cancelled
         if action==Action.INVESTIGATE and self.discovery_timestamp is not None:
             self.orders = [order for order in self.orders if _get_timestep_from_timestamp(self.signup_timestamp, order.creation_timestamp) < self.timestep-1]
@@ -97,7 +97,7 @@ class FakeSellerGymEnv(gym.Env):
         return obs, info
     
     def _get_reward_from_state_action(self, action, creation, delivery_confirmation, done):
-        reward = AVERAGE_BENEFIT_PER_ORDER*delivery_confirmation[-1] # benefit of confirmation
+        reward = 0 if self.discovery_timestamp is not None else AVERAGE_BENEFIT_PER_ORDER*delivery_confirmation[-1] # benefit of confirmation, never happening for a fraud seller
         
         if action==Action.INVESTIGATE:
             reward -= COST_INVESTIGATION # price of investigation
@@ -109,7 +109,6 @@ class FakeSellerGymEnv(gym.Env):
                     
         if done and self.discovery_timestamp is not None: # Terminal cost
             reward -= AVERAGE_COST_PER_ORDER*np.sum(creation) # we make costs for every order
-                
         return reward
         
 
@@ -129,9 +128,9 @@ class FakeSellerGymEnv(gym.Env):
 
 def _get_state_of_orders_at_timestep(signup_timestamp: datetime.datetime, orders: List[Order], timestep: int):
     if timestep == 0:
-        creation = np.zeros(8) 
+        creation = np.zeros(7) 
         delivery = np.zeros(14) 
-        delivery_confirmation = np.zeros(8)
+        delivery_confirmation = np.zeros(7)
     else:
         #creation_timesteps = np.array([(order.creation_timestamp.date() - signup_timestamp.date()).days for order in orders])
         creation_timesteps = np.array([_get_timestep_from_timestamp(signup_timestamp, order.creation_timestamp) for order in orders])
