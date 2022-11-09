@@ -114,14 +114,16 @@ class FakeSellerGymEnv(gym.Env):
 
     def _get_orders_for_seller_id(self, seller_id: int) -> List[Order]:
         return [
-            Order(order.creation_timestamp, order.delivery_date, order.delivery_confirmation_timestamp) 
+            Order(order.creation_timestamp, order.delivery_date, order.delivery_confirmation_timestamp if not pd.isnull(order.delivery_confirmation_timestamp) else None) 
             for _, order in self.orders_df[self.orders_df.seller_id == seller_id].iterrows()
         ]
 
     def _get_discovery_timestamp_for_seller_id(self, seller_id: int) -> Optional[datetime.datetime]:
         discovery = self.discovery_df[self.discovery_df.seller_id==seller_id]
-        if not discovery.empty:
+        if (not discovery.empty) and (not pd.isnull(discovery.iloc[0].discovery_timestamp)):
             return discovery.iloc[0].discovery_timestamp
+        else:
+            return None
 
 
 
@@ -140,9 +142,17 @@ def _get_state_of_orders_at_timestep(signup_timestamp: datetime.datetime, orders
         delivery, _ = np.histogram(delivery_timesteps-timestep, bins=PAST_AND_FUTURE_BINS)
         #delivery_confirmation_timesteps = np.array([(order.delivery_confirmation_timestamp - signup_timestamp).days for order in orders])
         delivery_confirmation_timesteps = np.array([_get_timestep_from_timestamp(signup_timestamp, order.delivery_confirmation_timestamp) for order in orders])
+        # remove None
+        delivery_confirmation_timesteps = delivery_confirmation_timesteps[delivery_confirmation_timesteps != np.array(None)]
         delivery_confirmation, _ = np.histogram(delivery_confirmation_timesteps-timestep, bins=PAST_BINS)
     return creation, delivery, delivery_confirmation
 
 
 def _get_timestep_from_timestamp(signup_timestamp: datetime.datetime, timestamp: datetime.datetime) -> int:
-    return (timestamp.date() - signup_timestamp.date()).days
+    out = None
+    if timestamp is not None:
+        try:
+            out = (timestamp.date() - signup_timestamp.date()).days
+        except TypeError:
+            breakpoint()
+    return out
