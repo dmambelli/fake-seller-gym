@@ -126,7 +126,7 @@ class FakeSellerGymEnv(gym.Env):
             return None
 
 
-
+# stand-alone functions
 
 def _get_state_of_orders_at_timestep(signup_timestamp: datetime.datetime, orders: List[Order], timestep: int):
     if timestep == 0:

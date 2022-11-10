@@ -44,8 +44,8 @@ for _ in range(100000):
 
 print(f'mean # orders: {statistics.mean(num_orders)}')
 #
-plt.hist(classification_score,bins=50)
-plt.show()
+#plt.hist(classification_score,bins=50)
+#plt.show()
 #NOTE: classification score is still very predictive, 
 # - it might make sense to have blindspots (i.e. stuff with cs > .8 is not observed in training)
 # - it might make sense to have higher uncertanty to avoid easy suboptimal policies
@@ -53,14 +53,13 @@ plt.show()
 #plt.hist(deltatime_creation,bins=max(deltatime_creation))
 #plt.show()
 print(f'mean delta_creation: exp={exponential_creation_days} vs real={statistics.mean(deltatime_creation)}')
-#NOTE: lower than expected but might be because we cut the tail of the exponential distribution 
 #
 #plt.hist(deltatime_delivery,bins=max(deltatime_delivery))
 #plt.show()
 print(f'mean delta_creation: exp={exponential_delivery_days} vs real={statistics.mean(deltatime_delivery)}')
 #
-#plt.hist(deltatime_delivery_confirmation,bins=max(deltatime_delivery_confirmation))
-#plt.show()
+plt.hist(deltatime_delivery_confirmation,bins=max(deltatime_delivery_confirmation))
+plt.show()
 print(f'mean delta_creation: exp={exponential_delivery_confirmation_days} vs real={statistics.mean(deltatime_delivery_confirmation)}')
 
 # testing dataframes

@@ -67,35 +67,34 @@ class SyntheticDataGen():
         if fraud:
             classifier_score = np.random.beta(self.beta_higher, self.beta_lower)
             #NOTE: discovery timestamp is selected uniformly across the time horizon
-            discovery_timestamp = signup_timestamp + datetime.timedelta(0, int(np.random.choice(60*60*24*self.cutoff_day, 1)[0]))
+            #discovery_timestamp = signup_timestamp + datetime.timedelta(0, int(np.random.choice(60*60*24*self.cutoff_day, 1)[0]))
         else:
             classifier_score = np.random.beta(self.beta_lower, self.beta_higher)
-            discovery_timestamp = None
             
         seller = Seller(
             seller_id=seller_id,
             classifier_score=classifier_score,
-            discovery_timestamp=discovery_timestamp,
+            discovery_timestamp=None,
             signup_timestamp=signup_timestamp,
-            orders=None)
+            orders=[])
             
         # sample #orders
         num_orders = int(np.random.choice(np.arange(1, self.max_orders_per_seller), 1)[0])
         # sample orders
-        orders = []
-        prev_event = signup_timestamp
-        for _ in range(num_orders):
-            orders.append(self.sample_orders_from_seller(seller, prev_event))
-            prev_event = orders[-1].creation_timestamp
+        while not seller.orders: # ensuring that the list of orders is not empty after applying current fraud detection policy
+            prev_event = signup_timestamp
+            for _ in range(num_orders):
+                seller.orders.append(self.sample_order_from_seller(seller, prev_event))
+                prev_event = seller.orders[-1].creation_timestamp
 
-        #NOTE: probably not necessary
-        shuffle(orders)
-        
-        seller.orders = orders
+            #NOTE: probably not necessary
+            shuffle(seller.orders)
+            # apply current policy to sampled orders
+            seller = self.fraud_detection_policy(seller, fraud)
             
         return seller
             
-    def sample_orders_from_seller(self, seller: Seller, prev_event: datetime.datetime) -> Order:
+    def sample_order_from_seller(self, seller: Seller, prev_event: datetime.datetime) -> Order:
         order = Order(creation_timestamp=None,delivery_date=None,delivery_confirmation_timestamp=None)
         time_horizon_timestamp = seller.signup_timestamp+datetime.timedelta(0, 60*60*24*self.cutoff_day)
         terminal_timestamp = seller.discovery_timestamp if seller.discovery_timestamp is not None else time_horizon_timestamp
@@ -111,15 +110,30 @@ class SyntheticDataGen():
         order.delivery_date = delivery_date # delivery date always exists since we get it when the order is made
         
         # sample delivery confirmation as offeset from delivery
-        if seller.discovery_timestamp is None and order.delivery_date is not None: # if not fraud and there is a delivery data
+        if seller.discovery_timestamp is None and order.delivery_date is not None: # if not fraud and there is a delivery date
             delivery_datetime = datetime.datetime.combine(order.delivery_date, datetime.time(0,0,0))
             delivery_confirmation_timestamp = delivery_datetime + datetime.timedelta(0, int(np.random.exponential(self.exponential_delivery_confirmation)))
-            if delivery_confirmation_timestamp > terminal_timestamp:
+            if delivery_confirmation_timestamp > terminal_timestamp: # if deleivery timestamp is before final timestamp
                 order.delivery_confirmation_timestamp = None
             else:
                 order.delivery_confirmation_timestamp = delivery_confirmation_timestamp
         else:
             order.delivery_confirmation_timestamp = None
         return order
-        
     
+    def fraud_detection_policy(self, seller: Seller, fraud_label: bool):
+        if fraud_label: # don't filter our anything if there is not discovery timestamp
+            # compute discovery_timestamp based on behavioural policy
+            seller.discovery_timestamp = seller.signup_timestamp + datetime.timedelta(0, int(np.random.choice(60*60*24*self.cutoff_day, 1)[0]))
+            
+            for idx, order in enumerate(seller.orders):
+                if order.creation_timestamp > seller.discovery_timestamp:
+                    # remove whole order
+                    seller.orders[idx] = None
+                elif order.delivery_confirmation_timestamp is not None:
+                    if order.delivery_confirmation_timestamp > seller.discovery_timestamp:
+                        order.delivery_confirmation_timestamp = None
+            
+            seller.orders = [order for order in seller.orders if order is not None]
+        
+        return seller
